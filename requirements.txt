@@ -1,7 +1,8 @@
 langchain
-Flask
-Flask-Cors
+fastapi
 faiss-cpu
 openai
 PyPDF2
 python-dotenv
+python-multipart
+uvicorn
