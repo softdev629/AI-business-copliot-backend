@@ -5,4 +5,5 @@ openai
 PyPDF2
 python-dotenv
 python-multipart
-uvicorn
+uvicorn[standard]
+gunicorn

@@ -1,5 +1,5 @@
 .idea
-__pycache__
-pdfs
+files
 .env
 store
+__pycache__
