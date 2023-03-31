@@ -1,6 +1,7 @@
+import json
 import os
-import logging
 from fastapi import FastAPI, WebSocket, UploadFile, WebSocketDisconnect, Body
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from PyPDF2 import PdfReader
@@ -21,6 +22,7 @@ UPLOAD_FOLDER = './files'
 ALLOWED_EXTENSIONS = {'pdf', 'txt'}
 
 app = FastAPI()
+app.mount("/settings", StaticFiles(directory="settings"), name="static")
 
 origins = [
     "https://seahorse-app-kbdql.ondigitalocean.app",
@@ -86,7 +88,6 @@ async def train_youtube(num: int, url: str = Body(embed=True)):
     embeddings = OpenAIEmbeddings()
     if(os.path.exists(f"./store/{num}/index.faiss")):
         docsearch = FAISS.load_local(f"./store/{num}", embeddings)
-        combineDoc = FAISS.load_local(f"./store/{num}", embeddings)
         docsearch.add_documents(texts)
     else:
         docsearch = FAISS.from_documents(texts, embeddings)
@@ -109,7 +110,7 @@ prompt = PromptTemplate(
 )
 
 @app.websocket("/api/chat/{num}")
-async def pdf_chat(websocket: WebSocket, num: str):
+async def chat(websocket: WebSocket, num: str):
     await websocket.accept()
     llm = OpenAI(temperature=0)
     memory = ConversationKGMemory(llm=llm, memory_key="chat_history", input_key="human_input")
@@ -125,6 +126,65 @@ async def pdf_chat(websocket: WebSocket, num: str):
             await websocket.send_text(completion)
         except WebSocketDisconnect:
             break
+
+def settings_check(num: str):
+    if not os.path.exists(f"./settings/{num}"):
+        os.makedirs(f"./settings/{num}");
+        with open(f"./settings/{num}/settings.json", "w") as f:
+            data = {"title": f"Bot {num}", "header": "", "bot": "", "user": ""}
+            json.dump(data, f)
+
+@app.post("/api/header-change/{num}")
+async def header_change(num: str, title: str = Body(embed = True)):
+    settings_check(num)
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+    data["title"] = title
+    with open(f"./settings/{num}/settings.json", "w") as f:
+        json.dump(data, f)
+    return {"status": "success"}
+
+@app.post("/api/header-upload/{num}")
+async def header_upload(file: UploadFile, num: str):
+    settings_check(num)
+    fileext = file.filename.rsplit('.', 1)[1].lower()
+    path = Path(f"./settings/{num}") / f'header.{fileext}'
+    path.write_bytes(await file.read())
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+    data["header"] = f"header.{fileext}"
+    with open(f"./settings/{num}/settings.json", "w") as f:
+        json.dump(data, f)
+
+@app.post("/api/botimg-upload/{num}")
+async def botimg_upload(file: UploadFile, num: str):
+    settings_check(num)
+    fileext = file.filename.rsplit('.', 1)[1].lower()
+    path = Path(f"./settings/{num}") / f'bot.{fileext}'
+    path.write_bytes(await file.read())
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+    data["bot"] = f"bot.{fileext}"
+    with open(f"./settings/{num}/settings.json", "w") as f:
+        json.dump(data, f)
+
+@app.post("/api/userimg-upload/{num}")
+async def userimg_upload(file: UploadFile, num: str):
+    settings_check(num)
+    fileext = file.filename.rsplit('.', 1)[1].lower()
+    path = Path(f"./settings/{num}") / f'user.{fileext}'
+    path.write_bytes(await file.read())
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+    data["user"] = f"user.{fileext}"
+    with open(f"./settings/{num}/settings.json", "w") as f:
+        json.dump(data, f)
+
+@app.get("/api/settings/{num}")
+async def get_settings(num: str):
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+        return data
 
 if __name__ == "__main__":
     import uvicorn
