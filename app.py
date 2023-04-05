@@ -1,16 +1,18 @@
 import json
 import os
-from fastapi import FastAPI, WebSocket, UploadFile, WebSocketDisconnect, Body
+from fastapi import FastAPI, WebSocket, UploadFile, WebSocketDisconnect, Body, Form
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from PyPDF2 import PdfReader
+from pydantic import BaseModel
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import YoutubeLoader, TextLoader
 from langchain import PromptTemplate
 from langchain.memory import ConversationKGMemory
@@ -70,7 +72,7 @@ async def upload(file: UploadFile, num: str):
             embeddings = OpenAIEmbeddings()
             if os.path.exists(f"./store/{num}/index.faiss"):
                 docsearch = FAISS.load_local(f"./store/{num}", embeddings)
-                docsearch.add_documents(split_docs, embeddings)
+                docsearch.add_documents(split_docs)
             else:
                 docsearch = FAISS.from_documents(split_docs, embeddings)
             docsearch.save_local(f"./store/{num}")
@@ -113,6 +115,11 @@ prompt = PromptTemplate(
 async def chat(websocket: WebSocket, num: str):
     await websocket.accept()
     llm = OpenAI(temperature=0)
+    settings_check(num)
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+    if data["model"] != "text-davinci-003":
+        llm = ChatOpenAI(model_name=data["model"], temperature=0)
     memory = ConversationKGMemory(llm=llm, memory_key="chat_history", input_key="human_input")
     chain = load_qa_chain(llm=llm, chain_type="stuff", memory=memory, verbose=True, prompt=prompt)
     embeddings = OpenAIEmbeddings()
@@ -131,15 +138,22 @@ def settings_check(num: str):
     if not os.path.exists(f"./settings/{num}"):
         os.makedirs(f"./settings/{num}");
         with open(f"./settings/{num}/settings.json", "w") as f:
-            data = {"title": f"Bot {num}", "header": "", "bot": "", "user": ""}
+            data = {"title": f"Bot {num}", "header": "", "bot": "", "user": "", "model": "gpt-4"}
             json.dump(data, f)
 
+class Item(BaseModel):
+    title: str
+    model: str
+
 @app.post("/api/header-change/{num}")
-async def header_change(num: str, title: str = Body(embed = True)):
+async def header_change(num: str, item: Item):
+    item_dict = item.dict()
+    print(item_dict)
     settings_check(num)
     with open(f"./settings/{num}/settings.json") as f:
         data = json.load(f)
-    data["title"] = title
+    data["title"] = item_dict["title"]
+    data["model"] = item_dict["model"]
     with open(f"./settings/{num}/settings.json", "w") as f:
         json.dump(data, f)
     return {"status": "success"}
@@ -179,6 +193,18 @@ async def userimg_upload(file: UploadFile, num: str):
     data["user"] = f"user.{fileext}"
     with open(f"./settings/{num}/settings.json", "w") as f:
         json.dump(data, f)
+
+async def botimg_upload(file: UploadFile, num: str):
+    settings_check(num)
+    fileext = file.filename.rsplit('.', 1)[1].lower()
+    path = Path(f"./settings/{num}") / f'bot.{fileext}'
+    path.write_bytes(await file.read())
+    with open(f"./settings/{num}/settings.json") as f:
+        data = json.load(f)
+    data["bot"] = f"bot.{fileext}"
+    with open(f"./settings/{num}/settings.json", "w") as f:
+        json.dump(data, f)
+
 
 @app.get("/api/settings/{num}")
 async def get_settings(num: str):
