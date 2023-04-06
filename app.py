@@ -138,7 +138,7 @@ def settings_check(num: str):
     if not os.path.exists(f"./settings/{num}"):
         os.makedirs(f"./settings/{num}");
         with open(f"./settings/{num}/settings.json", "w") as f:
-            data = {"title": f"Bot {num}", "header": "", "bot": "", "user": "", "model": "gpt-4"}
+            data = {"title": f"Bot {num}", "header": "", "bot": "", "user": "", "model": "gpt-3.5-turbo"}
             json.dump(data, f)
 
 class Item(BaseModel):
