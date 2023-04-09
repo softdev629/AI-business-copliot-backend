@@ -15,7 +15,7 @@ from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import YoutubeLoader, TextLoader
 from langchain import PromptTemplate
-from langchain.memory import ConversationKGMemory
+from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,6 +25,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'txt'}
 
 app = FastAPI()
 app.mount("/settings", StaticFiles(directory="settings"), name="static")
+app.mount("/store", StaticFiles(directory="store"), name="static")
 
 origins = [
     "https://seahorse-app-kbdql.ondigitalocean.app",
@@ -120,7 +121,7 @@ async def chat(websocket: WebSocket, num: str):
         data = json.load(f)
     if data["model"] != "text-davinci-003":
         llm = ChatOpenAI(model_name=data["model"], temperature=0)
-    memory = ConversationKGMemory(llm=llm, memory_key="chat_history", input_key="human_input")
+    memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
     chain = load_qa_chain(llm=llm, chain_type="stuff", memory=memory, verbose=True, prompt=prompt)
     embeddings = OpenAIEmbeddings()
     docsearch = FAISS.load_local(f"./store/{num}", embeddings)
@@ -208,6 +209,7 @@ async def botimg_upload(file: UploadFile, num: str):
 
 @app.get("/api/settings/{num}")
 async def get_settings(num: str):
+    settings_check(num)
     with open(f"./settings/{num}/settings.json") as f:
         data = json.load(f)
         return data
@@ -215,3 +217,7 @@ async def get_settings(num: str):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=9000, reload=True)
+    if not os.path.exists(f"./{UPLOAD_FOLDER}"):
+        os.makedirs(f"./{UPLOAD_FOLDER}");
+    if not os.path.exists("./settings"):
+        os.makedirs("./settings");

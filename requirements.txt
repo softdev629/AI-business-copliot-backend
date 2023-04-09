@@ -8,3 +8,5 @@ python-multipart
 uvicorn[standard]
 gunicorn
 networkx
+youtube-transcript-api
+tiktoken
