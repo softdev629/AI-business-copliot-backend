@@ -1,6 +1,6 @@
 import json
 import os
-from fastapi import FastAPI, WebSocket, UploadFile, WebSocketDisconnect, Body, Form
+from fastapi import FastAPI, WebSocket, UploadFile, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,8 +40,10 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @app.post('/api/upload/{num}')
 async def upload(file: UploadFile, num: str):
@@ -50,14 +52,15 @@ async def upload(file: UploadFile, num: str):
     if file and allowed_file(file.filename):
         path.write_bytes(await file.read())
         fileext = file.filename.rsplit('.', 1)[1].lower()
-        if(fileext == 'pdf'):
+        if (fileext == 'pdf'):
             reader = PdfReader(path)
             raw_text = ''
             for i, page in enumerate(reader.pages):
                 text = page.extract_text()
                 if text:
                     raw_text += text
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, length_function=len)
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000, chunk_overlap=200, length_function=len)
             texts = text_splitter.split_text(raw_text)
             embeddings = OpenAIEmbeddings()
             if os.path.exists(f"./store/{num}/index.faiss"):
@@ -68,7 +71,8 @@ async def upload(file: UploadFile, num: str):
             docsearch.save_local(f"./store/{num}")
         else:
             loader = TextLoader(path)
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, length_function=len)
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000, chunk_overlap=200, length_function=len)
             split_docs = loader.load_and_split(text_splitter)
             embeddings = OpenAIEmbeddings()
             if os.path.exists(f"./store/{num}/index.faiss"):
@@ -81,15 +85,17 @@ async def upload(file: UploadFile, num: str):
         return {"state": "success"}
     return {"state": "error", "message": "Invalid file format"}
 
+
 @app.post('/api/youtube/train/{num}')
 async def train_youtube(num: int, url: str = Body(embed=True)):
     loader = YoutubeLoader.from_youtube_channel(url)
     data = loader.load()
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_documents(data)
 
     embeddings = OpenAIEmbeddings()
-    if(os.path.exists(f"./store/{num}/index.faiss")):
+    if (os.path.exists(f"./store/{num}/index.faiss")):
         docsearch = FAISS.load_local(f"./store/{num}", embeddings)
         docsearch.add_documents(texts)
     else:
@@ -112,6 +118,7 @@ prompt = PromptTemplate(
     template=template
 )
 
+
 @app.websocket("/api/chat/{num}")
 async def chat(websocket: WebSocket, num: str):
     await websocket.accept()
@@ -121,8 +128,10 @@ async def chat(websocket: WebSocket, num: str):
         data = json.load(f)
     if data["model"] != "text-davinci-003":
         llm = ChatOpenAI(model_name=data["model"], temperature=0)
-    memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
-    chain = load_qa_chain(llm=llm, chain_type="stuff", memory=memory, verbose=True, prompt=prompt)
+    memory = ConversationBufferMemory(
+        memory_key="chat_history", input_key="human_input")
+    chain = load_qa_chain(llm=llm, chain_type="stuff",
+                          memory=memory, verbose=True, prompt=prompt)
     embeddings = OpenAIEmbeddings()
     docsearch = FAISS.load_local(f"./store/{num}", embeddings)
 
@@ -135,16 +144,20 @@ async def chat(websocket: WebSocket, num: str):
         except WebSocketDisconnect:
             break
 
+
 def settings_check(num: str):
     if not os.path.exists(f"./settings/{num}"):
-        os.makedirs(f"./settings/{num}");
+        os.makedirs(f"./settings/{num}")
         with open(f"./settings/{num}/settings.json", "w") as f:
-            data = {"title": f"Bot {num}", "header": "", "bot": "", "user": "", "model": "gpt-3.5-turbo"}
+            data = {"title": f"Bot {num}", "header": "",
+                    "bot": "", "user": "", "model": "gpt-3.5-turbo"}
             json.dump(data, f)
+
 
 class Item(BaseModel):
     title: str
     model: str
+
 
 @app.post("/api/header-change/{num}")
 async def header_change(num: str, item: Item):
@@ -159,6 +172,7 @@ async def header_change(num: str, item: Item):
         json.dump(data, f)
     return {"status": "success"}
 
+
 @app.post("/api/header-upload/{num}")
 async def header_upload(file: UploadFile, num: str):
     settings_check(num)
@@ -170,6 +184,7 @@ async def header_upload(file: UploadFile, num: str):
     data["header"] = f"header.{fileext}"
     with open(f"./settings/{num}/settings.json", "w") as f:
         json.dump(data, f)
+
 
 @app.post("/api/botimg-upload/{num}")
 async def botimg_upload(file: UploadFile, num: str):
@@ -183,6 +198,7 @@ async def botimg_upload(file: UploadFile, num: str):
     with open(f"./settings/{num}/settings.json", "w") as f:
         json.dump(data, f)
 
+
 @app.post("/api/userimg-upload/{num}")
 async def userimg_upload(file: UploadFile, num: str):
     settings_check(num)
@@ -192,17 +208,6 @@ async def userimg_upload(file: UploadFile, num: str):
     with open(f"./settings/{num}/settings.json") as f:
         data = json.load(f)
     data["user"] = f"user.{fileext}"
-    with open(f"./settings/{num}/settings.json", "w") as f:
-        json.dump(data, f)
-
-async def botimg_upload(file: UploadFile, num: str):
-    settings_check(num)
-    fileext = file.filename.rsplit('.', 1)[1].lower()
-    path = Path(f"./settings/{num}") / f'bot.{fileext}'
-    path.write_bytes(await file.read())
-    with open(f"./settings/{num}/settings.json") as f:
-        data = json.load(f)
-    data["bot"] = f"bot.{fileext}"
     with open(f"./settings/{num}/settings.json", "w") as f:
         json.dump(data, f)
 
@@ -218,6 +223,6 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=9000, reload=True)
     if not os.path.exists(f"./{UPLOAD_FOLDER}"):
-        os.makedirs(f"./{UPLOAD_FOLDER}");
+        os.makedirs(f"./{UPLOAD_FOLDER}")
     if not os.path.exists("./settings"):
-        os.makedirs("./settings");
+        os.makedirs("./settings")

@@ -10,3 +10,5 @@ gunicorn
 networkx
 youtube-transcript-api
 tiktoken
+passlib[bcrypt]
+python-jose[cryptography]
