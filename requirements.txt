@@ -12,3 +12,4 @@ youtube-transcript-api
 tiktoken
 passlib[bcrypt]
 python-jose[cryptography]
+Jinja2
