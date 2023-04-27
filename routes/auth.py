@@ -1,14 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from schemas.auth import UserRegisterRequest
+from schemas.auth import UserRegisterRequest, UserInfo
 from typing import Annotated
 from pydantic import EmailStr
 from datetime import datetime
 from random import randbytes
 import hashlib
+from jose import JWTError
 
 from core.database import db
-from utils import get_password_hash, verify_password, create_access_token, user_entity
+from utils import get_password_hash, verify_password, create_access_token, user_entity, get_email_from_token
 from core.email import Email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -84,3 +85,29 @@ async def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()])
 
     access_token = create_access_token(data={"sub": user["email"]})
     return {"access_token": access_token}
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
+    try:
+        email = get_email_from_token(token)
+        if email is None:
+            raise credentials_exception
+        user = users_collection.find_one({"email": email})
+        if user is None:
+            raise credentials_exception
+        return user
+    except JWTError:
+        raise credentials_exception
+
+
+@router.get("/user", response_model=UserInfo)
+async def read_user(current_user: Annotated[UserInfo, Depends(get_current_user)]):
+    return current_user
