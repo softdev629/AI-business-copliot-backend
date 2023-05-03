@@ -82,9 +82,8 @@ async def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()])
     if not verify_password(form_data.password, user["password"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Incorrect password", headers={"WWW-Authenticate": "Bearer"})
-
     access_token = create_access_token(data={"sub": user["email"]})
-    return {"access_token": access_token}
+    return {"access_token": access_token, "user": UserInfo(**user)}
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")

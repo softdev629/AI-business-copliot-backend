@@ -7,6 +7,7 @@ python-dotenv
 python-multipart
 uvicorn[standard]
 gunicorn
+websockets
 networkx
 youtube-transcript-api
 tiktoken
