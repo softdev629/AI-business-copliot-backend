@@ -13,3 +13,10 @@ class UserInfo(BaseModel):
     full_name: str
     phone: str
     role: str
+
+
+class UserGoogle(BaseModel):
+    sub: str
+    name: str
+    email: str
+    picture: str

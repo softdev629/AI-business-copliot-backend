@@ -1,16 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from schemas.auth import UserRegisterRequest, UserInfo
+from fastapi_jwt_auth import AuthJWT
 from typing import Annotated
 from pydantic import EmailStr
 from datetime import datetime
 from random import randbytes
 import hashlib
 from jose import JWTError
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from core.database import db
 from utils import get_password_hash, verify_password, create_access_token, user_entity, get_email_from_token
 from core.email import Email
+from schemas.auth import UserRegisterRequest, UserInfo, UserGoogle
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -32,7 +35,6 @@ async def register_user(user: UserRegisterRequest, request: Request):
     user_dict["password"] = password_hash
     user_dict["role"] = "user"
     user_dict["is_verified"] = False
-    user_dict["google_sign"] = False
     user_dict["created_at"] = datetime.utcnow()
     user_dict["updated_at"] = user_dict["created_at"]
 
@@ -110,3 +112,32 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 @router.get("/user", response_model=UserInfo)
 async def read_user(current_user: Annotated[UserInfo, Depends(get_current_user)]):
     return current_user
+
+
+GOOGLE_CLIENT_ID = "504867464977-bnrvev217iqfpb02mg8nb7v1te3e73pu.apps.googleusercontent.com"
+
+
+@router.post('/login/google')
+async def login_google(token: Annotated[str, Body(embed=True)]):
+    try:
+        # Verify the access token with Google
+        idinfo = id_token.verify_oauth2_token(
+            token, requests.Request(), GOOGLE_CLIENT_ID)
+
+        user = users_collection.find_one({"email": idinfo["email"]})
+        if not user:
+            present = datetime.utcnow()
+            users_collection.insert_one({
+                "email": idinfo["email"],
+                "full_name": idinfo["name"],
+                "is_verified": True,
+                "role": "user",
+                "created_at": present,
+                "updated_at": present
+            })
+        user = users_collection.find_one({"email": idinfo["email"]})
+        access_token = create_access_token(data={"sub": user["email"]})
+        return {"access_token": access_token, "user": UserInfo(**user)}
+    except ValueError:
+        #  Handle invalid tokens
+        return {"error": "Invalid token"}

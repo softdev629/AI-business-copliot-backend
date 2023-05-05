@@ -5,5 +5,5 @@ from core.config import db_name
 
 load_dotenv()
 
-client = MongoClient(os.getenv("MONGO_URI"))
+client = MongoClient(os.getenv("MONGO_SERVER_URI"))
 db = client.get_database(db_name)
