@@ -220,9 +220,10 @@ async def get_settings(num: str):
         return data
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=9000, reload=True)
     if not os.path.exists(f"./{UPLOAD_FOLDER}"):
         os.makedirs(f"./{UPLOAD_FOLDER}")
     if not os.path.exists("./settings"):
         os.makedirs("./settings")
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=9000, reload=True)
+    

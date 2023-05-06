@@ -11,7 +11,7 @@ class UserRegisterRequest(BaseModel):
 class UserInfo(BaseModel):
     email: str
     full_name: str
-    phone: str
+    phone: str | None
     role: str
 
 

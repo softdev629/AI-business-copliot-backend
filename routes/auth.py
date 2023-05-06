@@ -39,23 +39,23 @@ async def register_user(user: UserRegisterRequest, request: Request):
     user_dict["updated_at"] = user_dict["created_at"]
 
     result = users_collection.insert_one(user_dict)
-    # new_user = users_collection.find_one({"_id": result.inserted_id})
+    new_user = users_collection.find_one({"_id": result.inserted_id})
 
-    # try:
-    token = randbytes(10)
-    hashed_code = hashlib.sha256()
-    hashed_code.update(token)
-    verification_code = hashed_code.hexdigest()
-    users_collection.find_one_and_update({"_id": result.inserted_id}, {"$set": {
-        "verification_code": verification_code, "updated_at": datetime.utcnow()}})
-    print(token.hex())
-    # url = f"{request.url.scheme}://{request.client.host}:{request.url.port}/api/auth/verifyemail/{token.hex()}"
-    # await Email(user_entity(new_user), url, [EmailStr(user.email)]).sendVerificationCode()
-    # except Exception as error:
-    #     users_collection.find_one_and_update({"_id": result.inserted_id}, {
-    #                                          "$set": {"verification_code": None, "updated_at": datetime.utcnow()}})
-    #     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #                         detail="There was error sending email")
+    try:
+        token = randbytes(10)
+        hashed_code = hashlib.sha256()
+        hashed_code.update(token)
+        verification_code = hashed_code.hexdigest()
+        users_collection.find_one_and_update({"_id": result.inserted_id}, {"$set": {
+            "verification_code": verification_code, "updated_at": datetime.utcnow()}})
+        print(token.hex())
+        url = f"{request.url.scheme}://{request.client.host}:{request.url.port}/verify/{token.hex()}"
+        await Email(user_entity(new_user), url, [EmailStr(user.email)]).sendVerificationCode()
+    except Exception as error:
+        users_collection.find_one_and_update({"_id": result.inserted_id}, {
+                                             "$set": {"verification_code": None, "updated_at": datetime.utcnow()}})
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="There was error sending email")
     return {"status": "success", "message": "Verification token successfully sent"}
 
 
@@ -123,7 +123,6 @@ async def login_google(token: Annotated[str, Body(embed=True)]):
         # Verify the access token with Google
         idinfo = id_token.verify_oauth2_token(
             token, requests.Request(), GOOGLE_CLIENT_ID)
-
         user = users_collection.find_one({"email": idinfo["email"]})
         if not user:
             present = datetime.utcnow()

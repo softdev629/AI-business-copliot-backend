@@ -14,3 +14,9 @@ tiktoken
 passlib[bcrypt]
 python-jose[cryptography]
 Jinja2
+fastapi_jwt_auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+pymongo
+fastapi_mail
