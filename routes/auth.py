@@ -49,12 +49,11 @@ async def register_user(user: UserRegisterRequest, request: Request):
         users_collection.find_one_and_update({"_id": result.inserted_id}, {"$set": {
             "verification_code": verification_code, "updated_at": datetime.utcnow()}})
         print(token.hex())
-        url = f"https://coral-app-3bimw.ondigitalocean.app/verify/{token.hex()}"
-        await Email(user_entity(new_user), url, [EmailStr(user.email)]).sendVerificationCode()
+        # url = f"https://coral-app-3bimw.ondigitalocean.app/verify/{token.hex()}"
+        # await Email(user_entity(new_user), url, [EmailStr(user.email)]).sendVerificationCode()
     except Exception as error:
         users_collection.find_one_and_update({"_id": result.inserted_id}, {
                                              "$set": {"verification_code": None, "updated_at": datetime.utcnow()}})
-        print(error)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="There was error sending email")
     return {"status": "success", "message": "Verification token successfully sent"}

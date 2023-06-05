@@ -59,7 +59,7 @@ async def upload(file: UploadFile, num: str):
 
 @router.post('/youtube/train/{num}')
 async def train_youtube(num: int, url: str = Body(embed=True)):
-    loader = YoutubeLoader.from_youtube_channel(url)
+    loader = YoutubeLoader.from_youtube_url(url)
     data = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=0)
@@ -78,7 +78,6 @@ async def train_youtube(num: int, url: str = Body(embed=True)):
 @router.post("/header-change/{num}")
 async def header_change(num: str, item: BasicSettings):
     item_dict = item.dict()
-    print(item_dict)
     settings_check(num)
     with open(f"./settings/{num}/settings.json") as f:
         data = json.load(f)
